@@ -2,7 +2,13 @@
 #include <time.h>
 #include <ulib.h>
 
-const int max_child = 32;
+static inline int isdigit(int c) { return '0' <= c && c <= '9'; }
+
+static int atoi(char *s) {
+  int i = 0;
+  while (isdigit(*s)) i = i * 10 + *(s++) - '0';
+  return i;
+}
 
 void sleepy_print(int pid) {
   struct timespec time = {.tv_sec = 0, .tv_nsec = 1e9};
@@ -19,7 +25,11 @@ void sleepy(int n, int pid) {
   for (int i = 0; i < n; i++) sleep(&time);
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+  int max_child = 32;
+
+  if (argc == 2) max_child = atoi(argv[1]);
+
   int start = sys_times();
 
   int n, pid;
@@ -36,9 +46,7 @@ int main(void) {
     assert(pid > 0);
   }
 
-  if (n > max_child) {
-    panic("fork claimed to work %d times!\n", n);
-  }
+  if (n > max_child) panic("fork claimed to work %d times!\n", n);
 
   for (; n > 0; n--) {
     while (wait() <= 0) {

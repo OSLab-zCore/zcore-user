@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <ulib.h>
 #include <unistd.h>
 
@@ -14,7 +15,7 @@ char buf[INSIZE];
 int main() {
   int FD = open("riscv64_bare.txt", O_RDWR | O_CREAT);
   int len = read(FD, buf, INSIZE);
-  int i = 0, begin = 0, end = 0;
+  int i = 0, begin = 0, end = 0, passed_tests = 0;
   while (i < len) {
     while (buf[i] != ' ') {
       i++;
@@ -30,20 +31,27 @@ int main() {
       char name[end - begin + 1];
       memcpy(name, buf + begin, end - begin);
       name[end - begin] = '\0';
-      if (fork() == 0) {
-        int returncode = sys_exec(name, 0, NULL);
-        if (returncode) {
-          cprintf("%s FAILED\n", name);
-        } else {
-          cprintf("%s OK\n", name);
-        }
+      int pid;
+      if ((pid = fork()) == 0) {
+        char* argv[] = {name, NULL};
+        int returncode = sys_exec(name, 0, argv);
+        cprintf("%s FAILED_S, returncode = %d.\n", name, returncode);
         exit(0);
       }
+      int store;
+      struct timespec time = {.tv_sec = 0, .tv_nsec = 1e8};
+      while (waitpid(pid, &store) <= 0) {
+        sleep(&time);
+      }
+      if (store != 0) {
+        cprintf("%s FAILED_F, returncode = %d.\n", name, store);
+        return 0;
+      }
+      passed_tests++;
     }
     i++;
     begin = i, end = i;
-    // while (wait() <= 0) {
-    // }
   }
+  cprintf("passed_tests = %d.\n", passed_tests);
   return 0;
 }
